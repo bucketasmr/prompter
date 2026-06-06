@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Атмосферный Онлайн Суфлер с Памятью</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #111;
+            color: #fff;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* Canvas для анимаций на фоне */
+        #effects-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        /* Панель управления */
+        #control-panel {
+            background-color: rgba(34, 34, 34, 0.9);
+            backdrop-filter: blur(5px);
+            padding: 15px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            align-items: center;
+            justify-content: center;
+            border-bottom: 2px solid rgba(51, 51, 51, 0.5);
+            z-index: 10;
+        }
+
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: rgba(43, 43, 43, 0.8);
+            padding: 5px 12px;
+            border-radius: 6px;
+            border: 1px solid #3a3a3a;
+            transition: border-color 0.2s;
+        }
+
+        .control-group:hover {
+            border-color: #00adb5;
+        }
+
+        label {
+            font-size: 14px;
+            color: #ccc;
+            user-select: none;
+        }
+
+        input[type="range"] {
+            cursor: pointer;
+            accent-color: #00adb5;
+        }
+
+        button, select, input[type="color"] {
+            padding: 10px 15px;
+            font-size: 15px;
+            font-weight: bold;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.2s;
+            background-color: #444;
+            color: white;
+        }
+
+        select {
+            outline: none;
+        }
+
+        #btn-toggle {
+            background-color: #00adb5;
+            min-width: 100px;
+        }
+
+        #btn-toggle:hover {
+            background-color: #008c9e;
+        }
+
+        #btn-mode {
+            background-color: #444;
+        }
+
+        #btn-settings {
+            background-color: #6c757d;
+        }
+        #btn-settings:hover {
+            background-color: #5a6268;
+        }
+
+        /* Область текста */
+        #text-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 40vh 10% 50vh 10%; 
+            scroll-behavior: auto;
+            z-index: 2; 
+            position: relative;
+        }
+
+        #text-container::-webkit-scrollbar {
+            width: 8px;
+        }
+        #text-container::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 4px;
+        }
+
+        #prompter-text {
+            font-size: 32px;
+            line-height: 1.6;
+            white-space: pre-wrap; 
+            text-align: center;
+            outline: none;
+            text-shadow: 0px 2px 4px rgba(0,0,0,0.8); 
+        }
+
+        #text-container:not(.edit-style) {
+            cursor: pointer;
+        }
+
+        .editing {
+            background-color: rgba(26, 26, 26, 0.7);
+            border: 1px dashed #555;
+            padding: 20px;
+            border-radius: 8px;
+        }
+
+        /* Линия фокуса */
+        #focus-line {
+            position: absolute;
+            top: 50%;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background-color: rgba(0, 173, 181, 0.5);
+            pointer-events: none;
+            z-index: 5;
+        }
+
+        /* Модальное окно настроек */
+        #settings-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            z-index: 100;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            background-color: #222;
+            color: #fff;
+            padding: 25px;
+            border-radius: 10px;
+            border: 1px solid #444;
+            width: 90%;
+            max-width: 480px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #333;
+            padding-bottom: 10px;
+        }
+
+        .modal-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .modal-row input[type="color"] {
+            padding: 2px;
+            width: 50px;
+            height: 35px;
+            background: none;
+        }
+
+        .modal-row select {
+            width: 60%;
+        }
+
+        /* Стили для блока радио */
+        .radio-section {
+            background-color: #2b2b2b;
+            padding: 12px;
+            border-radius: 6px;
+            border: 1px solid #3a3a3a;
+            margin-top: 5px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .radio-controls {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+        }
+
+        #btn-radio-play {
+            background-color: #28a745;
+            flex: 1;
+        }
+
+        #btn-close-settings {
+            background-color: #dc3545;
+            width: 100%;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+
+    <canvas id="effects-canvas"></canvas>
+
+    <div id="control-panel">
+        <button id="btn-mode">Режим: Редактирование</button>
+        <button id="btn-toggle" disabled>Старт</button>
+
+        <div class="control-group" title="Прокрутка колесиком мыши">
+            <label for="speed">Скорость:</label>
+            <input type="range" id="speed" min="1" max="20" value="4">
+        </div>
+
+        <div class="control-group" title="Прокрутка колесиком мыши">
+            <label for="font-size">Размер:</label>
+            <input type="range" id="font-size" min="20" max="120" value="40">
+        </div>
+
+        <button id="btn-settings">⚙️ Настройки</button>
+    </div>
+
+    <div id="focus-line"></div>
+
+    <div id="text-container" class="edit-style">
+        <div id="prompter-text" contenteditable="true" class="editing">Готово! Теперь настройки сохраняются навсегда. 💾
+
+Браузер запомнил твой любимый цвет текста, цвет фона, шрифт, скорость и даже выбранный сезонный эффект. 
+
+Попробуй зайти в настройки, кардинально всё изменить (например, включить осенний листопад, сделать шрифт Georgia и желтый цвет текста) и нажать «Сохранить и Закрыть». После этого обнови страницу в браузере (Ctrl + R).
+
+Всё останется ровно в том виде, в котором ты настроил! Полный комфорт.</div>
+    </div>
+
+    <div id="settings-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Дополнительные настройки</h3>
+            </div>
+            
+            <div class="modal-row" title="Можно переключать колесиком мыши">
+                <label for="effect-select">Эффект фона:</label>
+                <select id="effect-select">
+                    <option value="none">Без эффектов</option>
+                    <option value="stars">🌌 Звездное небо</option>
+                    <option value="autumn">🍁 Осенний листопад</option>
+                    <option value="winter">❄️ Зимний снегопад</option>
+                    <option value="spring">🌸 Весенние цветы и птицы</option>
+                </select>
+            </div>
+
+            <div class="modal-row" title="Можно переключать колесиком мыши">
+                <label for="font-family-select">Шрифт текста:</label>
+                <select id="font-family-select">
+                    <option value="'Segoe UI', sans-serif">Segoe UI (Стандартный)</option>
+                    <option value="Arial, sans-serif">Arial (Строгий)</option>
+                    <option value="'Courier New', monospace">Courier New (Машинка)</option>
+                    <option value="Georgia, serif">Georgia (С засечками)</option>
+                    <option value="'Times New Roman', serif">Times New Roman</option>
+                    <option value="Impact, sans-serif">Impact (Жирный)</option>
+                </select>
+            </div>
+
+            <div class="modal-row">
+                <label for="color-text">Цвет текста:</label>
+                <input type="color" id="color-text" value="#ffffff">
+            </div>
+
+            <div class="modal-row">
+                <label for="color-bg">Цвет фона:</label>
+                <input type="color" id="color-bg" value="#111111">
+            </div>
+
+            <div class="radio-section">
+                <label style="color: #00adb5; font-weight: bold;">📻 Фоновое radio (Love Classics):</label>
+                <div class="radio-controls">
+                    <button id="btn-radio-play">▶ Включить радио</button>
+                    <div style="display: flex; align-items: center; gap: 8px; flex: 1; justify-content: flex-end;">
+                        <label for="radio-volume">🔊</label>
+                        <input type="range" id="radio-volume" min="0" max="1" step="0.05" value="0.5" style="width: 80px;">
+                    </div>
+                </div>
+            </div>
+
+            <button id="btn-close-settings">Сохранить и Закрыть</button>
+        </div>
+    </div>
+
+    <script>
+        // Элементы интерфейса
+        const textContainer = document.getElementById('text-container');
+        const prompterText = document.getElementById('prompter-text');
+        const btnToggle = document.getElementById('btn-toggle');
+        const btnMode = document.getElementById('btn-mode');
+        const speedInput = document.getElementById('speed');
+        const fontSizeInput = document.getElementById('font-size');
+        
+        // Элементы настроек
+        const btnSettings = document.getElementById('btn-settings');
+        const settingsModal = document.getElementById('settings-modal');
+        const btnCloseSettings = document.getElementById('btn-close-settings');
+        const effectSelect = document.getElementById('effect-select');
+        const fontFamilySelect = document.getElementById('font-family-select');
+        const colorTextInput = document.getElementById('color-text');
+        const colorBgInput = document.getElementById('color-bg');
+        
+        // Радио элементы
+        const btnRadioPlay = document.getElementById('btn-radio-play');
+        const radioVolume = document.getElementById('radio-volume');
+        
+        const radioAudio = new Audio("https://strm112.1.fm/loveclassics_mobile_mp3");
+        radioAudio.volume = 0.5;
+        let isRadioPlaying = false;
+
+        // Канвас для анимаций
+        const canvas = document.getElementById('effects-canvas');
+        const ctx = canvas.getContext('2d');
+
+        let isScrolling = false;
+        let isEditMode = true;
+        let currentScrollTop = 0; 
+
+        // Переменные для эффектов
+        let particles = [];
+        let activeEffect = 'none';
+
+        // Очистка текста от чужого форматирования при вставке
+        prompterText.addEventListener('paste', (e) => {
+            e.preventDefault();
+            const text = (e.originalEvent || e).clipboardData.getData('text/plain');
+            document.execCommand('insertText', false, text);
+        });
+
+        // Старт/Пауза по клику на область текста (только в режиме чтения)
+        textContainer.addEventListener('click', (e) => {
+            if (isEditMode) return;
+            if (isScrolling) { stopScrolling(); } else { startScrolling(); }
+        });
+
+        // Настройки отображения текста
+        function updateFontSize(value) { prompterText.style.fontSize = `${value}px`; }
+        fontSizeInput.addEventListener('input', (e) => {
+            updateFontSize(e.target.value);
+            localStorage.setItem('prompter_fontSize', e.target.value); // Сохраняем размер сразу
+        });
+        
+        speedInput.addEventListener('input', (e) => {
+            localStorage.setItem('prompter_speed', e.target.value); // Сохраняем скорость сразу
+        });
+
+        // Кастомизация стилей (живое превью)
+        fontFamilySelect.addEventListener('change', (e) => prompterText.style.fontFamily = e.target.value);
+        colorTextInput.addEventListener('input', (e) => prompterText.style.color = e.target.value);
+        colorBgInput.addEventListener('input', (e) => document.body.style.backgroundColor = e.target.value);
+
+        // Открытие настроек
+        btnSettings.addEventListener('click', () => settingsModal.style.display = 'flex');
+        
+        // --- НОВЫЙ БЛОК: СОХРАНЕНИЕ НАСТРОЕК ПРИ ЗАКРЫТИИ ОКНА НАСТРОЕК ---
+        btnCloseSettings.addEventListener('click', () => {
+            settingsModal.style.display = 'none';
+            
+            // Записываем всё в память браузера (localStorage)
+            localStorage.setItem('prompter_effect', effectSelect.value);
+            localStorage.setItem('prompter_fontFamily', fontFamilySelect.value);
+            localStorage.setItem('prompter_colorText', colorTextInput.value);
+            localStorage.setItem('prompter_colorBg', colorBgInput.value);
+        });
+
+        // --- НОВЫЙ БЛОК: ЗАГРУЗКА НАСТРОЕК ПРИ ЗАПУСКЕ СТРАНИЦЫ ---
+        function loadSavedSettings() {
+            if (localStorage.getItem('prompter_speed')) {
+                speedInput.value = localStorage.getItem('prompter_speed');
+            }
+            if (localStorage.getItem('prompter_fontSize')) {
+                fontSizeInput.value = localStorage.getItem('prompter_fontSize');
+            }
+            updateFontSize(fontSizeInput.value);
+
+            if (localStorage.getItem('prompter_fontFamily')) {
+                const savedFont = localStorage.getItem('prompter_fontFamily');
+                fontFamilySelect.value = savedFont;
+                prompterText.style.fontFamily = savedFont;
+            }
+            if (localStorage.getItem('prompter_colorText')) {
+                const savedColorText = localStorage.getItem('prompter_colorText');
+                colorTextInput.value = savedColorText;
+                prompterText.style.color = savedColorText;
+            }
+            if (localStorage.getItem('prompter_colorBg')) {
+                const savedColorBg = localStorage.getItem('prompter_colorBg');
+                colorBgInput.value = savedColorBg;
+                document.body.style.backgroundColor = savedColorBg;
+            }
+            if (localStorage.getItem('prompter_effect')) {
+                const savedEffect = localStorage.getItem('prompter_effect');
+                effectSelect.value = savedEffect;
+                activeEffect = savedEffect;
+                initEffect();
+            }
+        }
+
+        // Управление радио
+        btnRadioPlay.addEventListener('click', () => {
+            if (!isRadioPlaying) {
+                radioAudio.play().then(() => {
+                    isRadioPlaying = true;
+                    btnRadioPlay.textContent = "⏸ Пауза радио";
+                    btnRadioPlay.style.backgroundColor = "#dc3545";
+                }).catch(err => console.log("Ошибка воспроизведения радио: ", err));
+            } else {
+                radioAudio.pause();
+                isRadioPlaying = false;
+                btnRadioPlay.textContent = "▶ Включить радио";
+                btnRadioPlay.style.backgroundColor = "#28a745";
+            }
+        });
+
+        radioVolume.addEventListener('input', (e) => {
+            radioAudio.volume = parseFloat(e.target.value);
+        });
+
+        // Режимы чтения/редактирования
+        btnMode.addEventListener('click', () => {
+            isEditMode = !isEditMode;
+            if (isEditMode) {
+                stopScrolling();
+                btnMode.textContent = 'Режим: Редактирование';
+                btnMode.style.backgroundColor = '#444';
+                prompterText.contentEditable = "true";
+                prompterText.classList.add('editing');
+                textContainer.classList.add('edit-style');
+                btnToggle.disabled = true;
+            } else {
+                btnMode.textContent = 'Режим: Чтение';
+                btnMode.style.backgroundColor = '#28a745';
+                prompterText.contentEditable = "false";
+                prompterText.classList.remove('editing');
+                textContainer.classList.remove('edit-style');
+                btnToggle.disabled = false;
+                textContainer.scrollTop = 0;
+                currentScrollTop = 0;
+            }
+        });
+
+        // Движение суфлера
+        function startScrolling() {
+            if (isScrolling) return;
+            isScrolling = true;
+            btnToggle.textContent = 'Пауза';
+            btnToggle.style.backgroundColor = '#dc3545';
+            currentScrollTop = textContainer.scrollTop;
+
+            function step() {
+                if (!isScrolling) return;
+                const speed = parseFloat(speedInput.value) * 0.12; 
+                currentScrollTop += speed;
+                textContainer.scrollTop = currentScrollTop;
+
+                if (textContainer.scrollTop + textContainer.clientHeight >= textContainer.scrollHeight - 1) {
+                    stopScrolling();
+                } else {
+                    requestAnimationFrame(step);
+                }
+            }
+            requestAnimationFrame(step);
+        }
+
+        function stopScrolling() {
+            isScrolling = false;
+            btnToggle.textContent = 'Старт';
+            btnToggle.style.backgroundColor = '#00adb5';
+        }
+
+        btnToggle.addEventListener('click', () => isScrolling ? stopScrolling() : startScrolling());
+
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'Space' && !isEditMode && document.activeElement !== prompterText) {
+                e.preventDefault();
+                btnToggle.click();
+            }
+        });
+
+        textContainer.addEventListener('scroll', () => {
+            if (!isScrolling) currentScrollTop = textContainer.scrollTop;
+        });
+
+        // Управление ползунками через колесико мыши (с сохранением в процессе)
+        function setupRangeWheel(inputElement, callback = null) {
+            const container = inputElement.closest('.control-group');
+            container.addEventListener('wheel', (e) => {
+                e.preventDefault();
+                const min = parseInt(inputElement.min);
+                const max = parseInt(inputElement.max);
+                let currentValue = parseInt(inputElement.value);
+                currentValue = e.deltaY < 0 ? Math.min(max, currentValue + 1) : Math.max(min, currentValue - 1);
+                inputElement.value = currentValue;
+                if (callback) callback(currentValue);
+            }, { passive: false });
+        }
+        setupRangeWheel(speedInput, (v) => localStorage.setItem('prompter_speed', v));
+        setupRangeWheel(fontSizeInput, (v) => {
+            updateFontSize(v);
+            localStorage.setItem('prompter_fontSize', v);
+        });
+
+        // Управление списками колесиком мыши
+        function setupSelectWheel(selectElement, callback = null) {
+            selectElement.addEventListener('wheel', (e) => {
+                e.preventDefault(); 
+                let index = selectElement.selectedIndex;
+                if (e.deltaY < 0) {
+                    if (index > 0) selectElement.selectedIndex = index - 1;
+                } else {
+                    if (index < selectElement.options.length - 1) selectElement.selectedIndex = index + 1;
+                }
+                selectElement.dispatchEvent(new Event('change'));
+            }, { passive: false });
+        }
+        
+        setupSelectWheel(effectSelect, () => {
+            activeEffect = effectSelect.value;
+            particles = [];
+            initEffect();
+        });
+        
+        setupSelectWheel(fontFamilySelect, () => {
+            prompterText.style.fontFamily = fontFamilySelect.value;
+        });
+
+
+        // ================= СИСТЕМА ЭФФЕКТОВ (CANVAS) =================
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        effectSelect.addEventListener('change', (e) => {
+            activeEffect = e.target.value;
+            particles = []; 
+            initEffect();
+        });
+
+        function initEffect() {
+            if (activeEffect === 'none') return;
+            const pCount = activeEffect === 'stars' ? 120 : 40;
+            for (let i = 0; i < pCount; i++) {
+                particles.push(createParticle(true));
+            }
+        }
+
+        function createParticle(init = false) {
+            const h = canvas.height;
+            const w = canvas.width;
+            
+            let p = {
+                x: Math.random() * w,
+                y: init ? Math.random() * h : -20,
+                size: 0,
+                speedX: 0,
+                speedY: 0,
+                color: '',
+                type: '', 
+                angle: Math.random() * Math.PI * 2,
+                spin: Math.random() * 0.02 - 0.01,
+                alpha: Math.random(), 
+                fadeSpeed: Math.random() * 0.008 + 0.003, 
+                fadeIn: Math.random() > 0.5 
+            };
+
+            if (activeEffect === 'stars') {
+                p.size = Math.random() * 2 + 0.5;
+                p.speedY = 0; 
+            } 
+            else if (activeEffect === 'winter') {
+                p.size = Math.random() * 3 + 1;
+                p.speedY = Math.random() * 1 + 0.5;
+                p.speedX = Math.random() * 0.5 - 0.25;
+                p.color = 'rgba(255, 255, 255, 0.8)';
+            } 
+            else if (activeEffect === 'autumn') {
+                p.size = Math.random() * 12 + 6;
+                p.speedY = Math.random() * 1 + 0.8;
+                p.speedX = Math.random() * 1 - 0.3;
+                const colors = ['#d9742b', '#b3361b', '#e6a121', '#8c271e'];
+                p.color = colors[Math.floor(Math.random() * colors.length)];
+            } 
+            else if (activeEffect === 'spring') {
+                p.type = Math.random() > 0.85 ? 'bird' : 'flower';
+                if (p.type === 'flower') {
+                    p.size = Math.random() * 8 + 4;
+                    p.speedY = Math.random() * 0.6 + 0.4;
+                    p.speedX = Math.random() * 0.8 - 0.2;
+                    p.color = Math.random() > 0.5 ? '#ffb7c5' : '#f0e68c'; 
+                } else {
+                    p.x = init ? Math.random() * w : -40;
+                    p.y = Math.random() * (h * 0.6);
+                    p.size = Math.random() * 6 + 4;
+                    p.speedX = Math.random() * 1.5 + 1;
+                    p.speedY = Math.random() * 0.4 - 0.2;
+                    p.color = 'rgba(200, 200, 200, 0.6)';
+                    p.wingState = 0;
+                }
+            }
+            return p;
+        }
+
+        function drawAnim() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            if (activeEffect !== 'none') {
+                particles.forEach((p, index) => {
+                    ctx.save();
+                    
+                    if (activeEffect === 'stars') {
+                        if (p.fadeIn) {
+                            p.alpha += p.fadeSpeed;
+                            if (p.alpha >= 0.9) p.fadeIn = false; 
+                        } else {
+                            p.alpha -= p.fadeSpeed;
+                            if (p.alpha <= 0.1) {
+                                p.fadeIn = true; 
+                                p.x = Math.random() * canvas.width;
+                                p.y = Math.random() * canvas.height;
+                            }
+                        }
+                        ctx.fillStyle = `rgba(255, 255, 255, ${p.alpha})`;
+                        ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2); ctx.fill();
+                    } 
+                    else if (activeEffect === 'winter') {
+                        p.y += p.speedY; p.x += p.speedX;
+                        ctx.fillStyle = p.color;
+                        ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2); ctx.fill();
+                    } 
+                    else if (activeEffect === 'autumn') {
+                        p.y += p.speedY; p.x += p.speedX; p.angle += p.spin;
+                        ctx.translate(p.x, p.y); ctx.rotate(p.angle);
+                        ctx.fillStyle = p.color;
+                        ctx.beginPath(); ctx.ellipse(0, 0, p.size, p.size / 2, 0, 0, Math.PI * 2); ctx.fill();
+                    } 
+                    else if (activeEffect === 'spring') {
+                        p.y += p.speedY; p.x += p.speedX;
+                        if (p.type === 'flower') {
+                            p.angle += p.spin;
+                            ctx.translate(p.x, p.y); ctx.rotate(p.angle);
+                            ctx.fillStyle = p.color;
+                            ctx.beginPath(); ctx.ellipse(0, 0, p.size, p.size / 1.5, 0, 0, Math.PI * 2); ctx.fill();
+                        } else {
+                            p.wingState += 0.1;
+                            const wingY = Math.sin(p.wingState) * (p.size / 2);
+                            ctx.strokeStyle = p.color; ctx.lineWidth = 2;
+                            ctx.beginPath();
+                            ctx.moveTo(p.x - p.size, p.y + wingY); ctx.lineTo(p.x, p.y); ctx.lineTo(p.x + p.size, p.y + wingY);
+                            ctx.stroke();
+                        }
+                    }
+
+                    ctx.restore();
+
+                    if (activeEffect !== 'stars' && (p.y > canvas.height + 20 || p.x > canvas.width + 40 || p.x < -40)) {
+                        particles[index] = createParticle(false);
+                    }
+                });
+            }
+            requestAnimationFrame(drawAnim);
+        }
+        
+        // Сначала загружаем все сохраненные настройки, затем включаем цикл анимации
+        loadSavedSettings();
+        drawAnim();
+    </script>
+</body>
+</html>
