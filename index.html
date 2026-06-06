@@ -268,13 +268,7 @@
     <div id="focus-line"></div>
 
     <div id="text-container" class="edit-style">
-        <div id="prompter-text" contenteditable="true" class="editing">Готово! Теперь настройки сохраняются навсегда. 💾
-
-Браузер запомнил твой любимый цвет текста, цвет фона, шрифт, скорость и даже выбранный сезонный эффект. 
-
-Попробуй зайти в настройки, кардинально всё изменить (например, включить осенний листопад, сделать шрифт Georgia и желтый цвет текста) и нажать «Сохранить и Закрыть». После этого обнови страницу в браузере (Ctrl + R).
-
-Всё останется ровно в том виде, в котором ты настроил! Полный комфорт.</div>
+        <div id="prompter-text" contenteditable="true" class="editing">Текст</div>
     </div>
 
     <div id="settings-modal">
@@ -317,7 +311,7 @@
             </div>
 
             <div class="radio-section">
-                <label style="color: #00adb5; font-weight: bold;">📻 Фоновое radio (Love Classics):</label>
+                <label style="color: #00adb5; font-weight: bold;">📻 Фоновое радио (Love Classics):</label>
                 <div class="radio-controls">
                     <button id="btn-radio-play">▶ Включить радио</button>
                     <div style="display: flex; align-items: center; gap: 8px; flex: 1; justify-content: flex-end;">
@@ -386,11 +380,11 @@
         function updateFontSize(value) { prompterText.style.fontSize = `${value}px`; }
         fontSizeInput.addEventListener('input', (e) => {
             updateFontSize(e.target.value);
-            localStorage.setItem('prompter_fontSize', e.target.value); // Сохраняем размер сразу
+            localStorage.setItem('prompter_fontSize', e.target.value);
         });
         
         speedInput.addEventListener('input', (e) => {
-            localStorage.setItem('prompter_speed', e.target.value); // Сохраняем скорость сразу
+            localStorage.setItem('prompter_speed', e.target.value);
         });
 
         // Кастомизация стилей (живое превью)
@@ -401,18 +395,16 @@
         // Открытие настроек
         btnSettings.addEventListener('click', () => settingsModal.style.display = 'flex');
         
-        // --- НОВЫЙ БЛОК: СОХРАНЕНИЕ НАСТРОЕК ПРИ ЗАКРЫТИИ ОКНА НАСТРОЕК ---
+        // Сохранение настроек в localStorage
         btnCloseSettings.addEventListener('click', () => {
             settingsModal.style.display = 'none';
-            
-            // Записываем всё в память браузера (localStorage)
             localStorage.setItem('prompter_effect', effectSelect.value);
             localStorage.setItem('prompter_fontFamily', fontFamilySelect.value);
             localStorage.setItem('prompter_colorText', colorTextInput.value);
             localStorage.setItem('prompter_colorBg', colorBgInput.value);
         });
 
-        // --- НОВЫЙ БЛОК: ЗАГРУЗКА НАСТРОЕК ПРИ ЗАПУСКЕ СТРАНИЦЫ ---
+        // Загрузка сохраненных настроек
         function loadSavedSettings() {
             if (localStorage.getItem('prompter_speed')) {
                 speedInput.value = localStorage.getItem('prompter_speed');
@@ -491,6 +483,13 @@
         // Движение суфлера
         function startScrolling() {
             if (isScrolling) return;
+            
+            // --- ИСПРАВЛЕНИЕ: Если скролл уже в самом конце, перед стартом перематываем наверх ---
+            if (textContainer.scrollTop + textContainer.clientHeight >= textContainer.scrollHeight - 5) {
+                textContainer.scrollTop = 0;
+                currentScrollTop = 0;
+            }
+
             isScrolling = true;
             btnToggle.textContent = 'Пауза';
             btnToggle.style.backgroundColor = '#dc3545';
@@ -502,6 +501,7 @@
                 currentScrollTop += speed;
                 textContainer.scrollTop = currentScrollTop;
 
+                // Если уперлись в конец текста
                 if (textContainer.scrollTop + textContainer.clientHeight >= textContainer.scrollHeight - 1) {
                     stopScrolling();
                 } else {
@@ -530,7 +530,7 @@
             if (!isScrolling) currentScrollTop = textContainer.scrollTop;
         });
 
-        // Управление ползунками через колесико мыши (с сохранением в процессе)
+        // Управление ползунками через колесико мыши
         function setupRangeWheel(inputElement, callback = null) {
             const container = inputElement.closest('.control-group');
             container.addEventListener('wheel', (e) => {
@@ -712,7 +712,6 @@
             requestAnimationFrame(drawAnim);
         }
         
-        // Сначала загружаем все сохраненные настройки, затем включаем цикл анимации
         loadSavedSettings();
         drawAnim();
     </script>
